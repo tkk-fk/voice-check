@@ -47,6 +47,13 @@
   .recdot{width:.85rem;height:.85rem;border-radius:50%;background:#D9463B;animation:blink 1s infinite;}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
+  .speed{display:inline-flex;align-items:center;gap:.5rem;}
+  .speed label{font-weight:700;font-size:clamp(.8rem,3vw,.95rem);white-space:nowrap;}
+  .speed small{font-family:"BIZ UDPGothic";color:var(--ink-soft);min-width:2.8em;text-align:right;font-weight:700;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:120px;height:12px;border-radius:8px;background:#EFE3C9;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;border-radius:50%;background:var(--f2);border:3px solid #fff;box-shadow:0 3px 0 var(--f2d);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--f2);border:3px solid #fff;box-shadow:0 3px 0 var(--f2d);cursor:pointer;}
+
   .note{margin:.9rem auto 0;font-size:clamp(.68rem,2.5vw,.8rem);color:var(--ink-soft);line-height:1.7;text-align:center;}
 </style>
 </head>
@@ -54,10 +61,10 @@
 <div class="wrap">
   <header>
     <h1>じぶんの こえを きく</h1>
-    <p class="sub">はけいを見て、とって、きいて、たしかめる</p>
+    <p class="sub">波形を見て、録って、きいて、たしかめる</p>
   </header>
 
-  <div class="steps"><span>①<b>はけい</b>を見る</span>・<span>②<b>ろくおん</b>する</span>・<span>③<b>きく</b></span></div>
+  <div class="steps"><span>①<b>波形</b>を見る</span>・<span>②<b>ろくおん</b>する</span>・<span>③<b>きく</b></span></div>
 
   <div class="scopewrap">
     <canvas id="scope"></canvas>
@@ -73,11 +80,13 @@
     <span class="reclab hidden" id="recLab"><span class="recdot"></span>ろくおん中…</span>
     <button class="btn play hidden" id="playBtn">▶ きく</button>
     <button class="btn again hidden" id="againBtn">やりなおす</button>
+    <span class="speed hidden" id="speedWrap"><label for="speed">はやさ</label>
+      <input id="speed" type="range" min="50" max="200" step="10" value="100"><small id="speedVal">×1.0</small></span>
   </div>
 
   <p class="note">
-    ①声を出すと はけいが うごきます。②「ろくおん」で じぶんの声を いれます。③「きく」で じぶんの声を きけます。<br>
-    ※ 声は この きかいの 中だけで しょりされ、そとには でません（かんぜんオフライン）。
+    ①声を出すと 波形が うごきます。②「ろくおん」で じぶんの声を いれます。③「きく」で じぶんの声を きけます。<br>
+    「はやさ」で ゆっくり／はやく きけます（ゆっくりだと 音が よく わかります）。声は この きかいの 中だけで しょりされ、そとには でません。
   </p>
 </div>
 
@@ -140,7 +149,7 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
   var audio=null, running=false, sr=44100;
   var buf=null, gain=6, mode='live';
   var recording=false, recChunks=[], recLen=0, recorded=null, recTimer=0;
-  var playing=false, playFrac=0, playToken=0, playSrc=null;
+  var playing=false, playFrac=0, playToken=0, playSrc=null, rate=1.0;
 
   /* ---- 描画 ---- */
   function prep(){
@@ -230,13 +239,13 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
     stopPlayback();
     var token=++playToken;
     var b=audio.ctx.createBuffer(1, recorded.length, sr); b.getChannelData(0).set(recorded);
-    var src=audio.ctx.createBufferSource(); src.buffer=b; src.connect(audio.ctx.destination);
+    var src=audio.ctx.createBufferSource(); src.buffer=b; src.playbackRate.value=rate; src.connect(audio.ctx.destination);
     playSrc=src; playing=true;
-    var t0=audio.ctx.currentTime, dur=recorded.length/sr;
+    var t0=audio.ctx.currentTime, effDur=(recorded.length/sr)/rate;
     src.onended=function(){ if(token===playToken){ playing=false; playFrac=0; drawFrame(); } };
     try{ src.start(); }catch(e){}
     (function pl(){ if(token!==playToken || !playing) return;
-      var f=(audio.ctx.currentTime-t0)/dur;
+      var f=(audio.ctx.currentTime-t0)/effDur;
       if(f>=1){ playFrac=1; drawFrame(); return; }
       playFrac=f<0?0:f; drawFrame(); requestAnimationFrame(pl);
     })();
@@ -252,12 +261,18 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
   function updateUI(){
     var recBtn=document.getElementById('recBtn'), recLab=document.getElementById('recLab');
     var playBtn=document.getElementById('playBtn'), againBtn=document.getElementById('againBtn');
+    var speedWrap=document.getElementById('speedWrap');
     recBtn.textContent = recording ? '■ とめる' : '● ろくおん';
     recLab.classList.toggle('hidden', !recording);
     var isRec = (mode==='recorded' && !recording);
     playBtn.classList.toggle('hidden', !isRec);
     againBtn.classList.toggle('hidden', !isRec);
+    speedWrap.classList.toggle('hidden', !isRec);
   }
+  document.getElementById('speed').addEventListener('input', function(){
+    rate=parseInt(this.value,10)/100;
+    document.getElementById('speedVal').textContent='×'+rate.toFixed(1);
+  });
 
   /* ---- 起動 ---- */
   function start(){
