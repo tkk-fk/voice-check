@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>じぶんの こえを きく｜波形で かくにん</title>
-<meta name="description" content="自分の声を録音して波形で見て、再生で客観的に聴ける特別支援教材。データは端末の外に出ない完全オフライン。発音の練習に。">
+<title>じぶんの こえを きく｜はけいで かくにん</title>
+<meta name="description" content="自分の声を録音してはけいで見て、再生で客観的に聴ける特別支援教材。データは端末の外に出ない完全オフライン。発音の練習に。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -61,10 +61,10 @@
 <div class="wrap">
   <header>
     <h1>じぶんの こえを きく</h1>
-    <p class="sub">波形を見て、録って、きいて、たしかめる</p>
+    <p class="sub">はけいを見て、録って、きいて、たしかめる</p>
   </header>
 
-  <div class="steps"><span>①<b>波形</b>を見る</span>・<span>②<b>ろくおん</b>する</span>・<span>③<b>きく</b></span></div>
+  <div class="steps"><span>①<b>はけい</b>を見る</span>・<span>②<b>ろくおん</b>する</span>・<span>③<b>きく</b></span></div>
 
   <div class="scopewrap">
     <canvas id="scope"></canvas>
@@ -85,7 +85,7 @@
   </div>
 
   <p class="note">
-    ①声を出すと 波形が うごきます。②「ろくおん」で じぶんの声を いれます。③「きく」で じぶんの声を きけます。<br>
+    ①声を出すと はけいが うごきます。②「ろくおん」で じぶんの声を いれます。③「きく」で じぶんの声を きけます。<br>
     「はやさ」で ゆっくり／はやく きけます（ゆっくりだと 音が よく わかります）。声は この きかいの 中だけで しょりされ、そとには でません。
   </p>
 </div>
@@ -213,6 +213,7 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
   }
   function startRecording(){
     if(!running) return;
+    resumeCtx();
     stopPlayback();
     recording=true; recChunks=[]; recLen=0; mode='live'; recorded=null;
     updateUI();
@@ -236,6 +237,7 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
   /* ---- 再生 ---- */
   function playRecorded(){
     if(!recorded || !audio) return;
+    resumeCtx();
     stopPlayback();
     var token=++playToken;
     var b=audio.ctx.createBuffer(1, recorded.length, sr); b.getChannelData(0).set(recorded);
@@ -275,13 +277,17 @@ if (typeof document !== 'undefined' && document.getElementById('scope')){
   });
 
   /* ---- 起動 ---- */
+  function resumeCtx(){ if(audio && audio.ctx && audio.ctx.state==='suspended'){ try{ audio.ctx.resume(); }catch(e){} } }
   function start(){
     var errMsg=document.getElementById('errMsg'); errMsg.classList.add('hidden');
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ errMsg.classList.remove('hidden'); return; }
+    var Ctor=window.AudioContext||window.webkitAudioContext;
+    if(!Ctor){ errMsg.classList.remove('hidden'); return; }
+    var ctx;
+    try{ ctx=new Ctor(); }catch(e){ errMsg.classList.remove('hidden'); return; }
+    if(ctx.state==='suspended'){ try{ ctx.resume(); }catch(e){} }   /* iOS：ユーザー操作の中で 生成・再開する */
     navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}})
       .then(function(stream){
-        var ctx=new (window.AudioContext||window.webkitAudioContext)();
-        if(ctx.state==='suspended') ctx.resume();
         sr=ctx.sampleRate;
         var source=ctx.createMediaStreamSource(stream);
         var analyser=ctx.createAnalyser(); analyser.fftSize=FFT; analyser.smoothingTimeConstant=0;
